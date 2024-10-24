@@ -1,0 +1,90 @@
+﻿@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+
+<AuthorizeView>
+    <Authorized>
+        <a href="/auth/profile" class="border-gray-400 rounde flex border">
+            <span class="avatar">
+                <img src="@_profileImageUrl" alt="@_fullname">
+                <span class="status online"></span>
+            </span>
+            <span class="user-name d-none d-md-block">@_firstname</span>
+        </a>
+        <a href="/auth/logout">Logout</a>
+    </Authorized>
+    <NotAuthorized>
+        <HeadContent>
+            <meta name="google-signin-client_id" content="@GoogleClientId" />
+            <script src="https://accounts.google.com/gsi/client" async defer></script>
+            <script>
+                function signinCallback(response) {
+                    if (response.credential) {
+                        const form = document.createElement("form");
+                        form.method = "POST";
+                        form.action = "/auth/callback";
+
+                        const input = document.createElement("input");
+                        input.type = "hidden";
+                        input.name = "credential";
+                        input.value = response.credential;
+
+                        form.appendChild(input);
+                        document.body.appendChild(form);
+
+                        form.submit();
+                    } else {
+                        console.error("No credential received.");
+                    }
+                }
+            </script>
+        </HeadContent>
+        <div id="g_id_onload"
+             data-client_id="@GoogleClientId"
+             data-context="signin"
+             data-ux_mode="popup"
+             data-callback="signinCallback"
+             data-auto_select="true"
+             data-itp_support="true">
+        </div>
+        <div class="g_id_signin"
+             data-type="standard"
+             data-shape="rectangular"
+             data-theme="outline"
+             data-text="signin_with"
+             data-size="large"
+             data-logo_alignment="left">
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@inject IHttpContextAccessor HttpContextAccessor
+@inject IConfiguration Configuration
+
+@code {
+    private string? GoogleClientId => Configuration["Authentication:Google:ClientId"];
+
+    private string? _firstname;
+    private string? _fullname;
+    private string? _profileImageUrl;
+
+    protected override Task OnInitializedAsync()
+    {
+        var user = HttpContextAccessor.HttpContext?.User;
+
+        if (user == null) return Task.CompletedTask;
+
+        _firstname = user.FindFirst(ClaimTypes.GivenName)?.Value ??
+                     user.Identity?.Name ??
+                     string.Empty;
+
+        _fullname = user.FindFirst(ClaimTypes.Name)?.Value ??
+                    user.Identity?.Name ??
+                    string.Empty;
+
+        _profileImageUrl = user.FindFirst(ClaimTypes.Actor)?.Value ??
+                           user.FindFirst("urn:google:Picture")?.Value ??
+                           string.Empty;
+
+        return Task.CompletedTask;
+    }
+}
